@@ -1,0 +1,284 @@
+package com.naukri.automation;
+
+import io.github.bonigarcia.wdm.WebDriverManager;
+import org.openqa.selenium.*;
+import org.openqa.selenium.chrome.ChromeDriver;
+import org.openqa.selenium.chrome.ChromeOptions;
+import org.openqa.selenium.support.ui.ExpectedConditions;
+import org.openqa.selenium.support.ui.WebDriverWait;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import java.time.Duration;
+import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
+import java.util.Random;
+
+/**
+ * NaukriProfileUpdater
+ *
+ * Opens Naukri, logs in, navigates to the profile page and clicks Save
+ * without making any real changes. This updates the "Last Updated" timestamp,
+ * which pushes the profile higher in recruiter searches.
+ *
+ * Credentials are read from environment variables (never hardcoded):
+ *   NAUKRI_EMAIL    – your registered Naukri email
+ *   NAUKRI_PASSWORD – your Naukri password
+ */
+public class NaukriProfileUpdater {
+
+    private static final Logger log = LoggerFactory.getLogger(NaukriProfileUpdater.class);
+
+    // ── URLs ──────────────────────────────────────────────────────────────────
+    private static final String NAUKRI_HOME    = "https://www.naukri.com";
+    private static final String LOGIN_URL      = "https://www.naukri.com/nlogin/login";
+    private static final String PROFILE_URL    = "https://www.naukri.com/mnjuser/profile";
+
+    // ── Timeouts ──────────────────────────────────────────────────────────────
+    private static final Duration PAGE_WAIT    = Duration.ofSeconds(20);
+    private static final Duration ELEMENT_WAIT = Duration.ofSeconds(15);
+
+    // ── Selectors (update these if Naukri changes its DOM) ────────────────────
+    // Login page
+    private static final String SEL_EMAIL_INPUT    = "input[placeholder='Enter your active Email ID / Username']";
+    private static final String SEL_PASSWORD_INPUT = "input[placeholder='Enter your password']";
+    private static final String SEL_LOGIN_BUTTON   = "button[type='submit']";
+
+    // Profile page — "Resume headline" section Save button
+    // Naukri has multiple save buttons; we target the one inside the headline widget
+    private static final String SEL_HEADLINE_EDIT  = "div.widgetHead.editIcon";          // pencil icon to open edit
+    private static final String SEL_SAVE_BUTTON     = "button.saveBtn, input.btnGreen";   // save inside the widget
+
+    // ── Random delay helper ───────────────────────────────────────────────────
+    private static final Random RNG = new Random();
+
+    public static void main(String[] args) {
+        log.info("=== Naukri Profile Updater started at {} ===",
+                LocalDateTime.now().format(DateTimeFormatter.ISO_LOCAL_DATE_TIME));
+
+        // Read credentials from environment
+        String email    = System.getenv("NAUKRI_EMAIL");
+        String password = System.getenv("NAUKRI_PASSWORD");
+
+        if (email == null || email.isBlank() || password == null || password.isBlank()) {
+            log.error("NAUKRI_EMAIL or NAUKRI_PASSWORD environment variable is not set. Exiting.");
+            System.exit(1);
+        }
+
+        WebDriver driver = null;
+        try {
+            driver = buildDriver();
+            WebDriverWait wait = new WebDriverWait(driver, ELEMENT_WAIT);
+
+            step1_login(driver, wait, email, password);
+            step2_openProfileEditor(driver, wait);
+            step3_saveProfile(driver, wait);
+
+            log.info("✅  Profile updated successfully. Timestamp refreshed on Naukri.");
+
+        } catch (Exception e) {
+            log.error("❌  Automation failed: {}", e.getMessage(), e);
+            System.exit(2);
+        } finally {
+            if (driver != null) {
+                driver.quit();
+                log.info("Browser closed.");
+            }
+        }
+    }
+
+    // ── Driver setup ──────────────────────────────────────────────────────────
+
+    private static WebDriver buildDriver() {
+        log.info("Setting up headless Chrome...");
+        WebDriverManager.chromedriver().setup();
+
+        ChromeOptions options = new ChromeOptions();
+
+        // Headless mode — required on servers with no display
+        options.addArguments("--headless=new");
+        options.addArguments("--no-sandbox");
+        options.addArguments("--disable-dev-shm-usage");
+        options.addArguments("--disable-gpu");
+        options.addArguments("--window-size=1920,1080");
+        options.addArguments("--disable-blink-features=AutomationControlled");
+
+        // Mimic a real browser user-agent to reduce bot-detection risk
+        options.addArguments(
+            "--user-agent=Mozilla/5.0 (X11; Linux x86_64) " +
+            "AppleWebKit/537.36 (KHTML, like Gecko) " +
+            "Chrome/122.0.0.0 Safari/537.36"
+        );
+
+        // Hide the "Chrome is being controlled by automated software" bar
+        options.setExperimentalOption("excludeSwitches", new String[]{"enable-automation"});
+        options.setExperimentalOption("useAutomationExtension", false);
+
+        ChromeDriver driver = new ChromeDriver(options);
+
+        // Remove the `navigator.webdriver` flag that bot-detection scripts check for
+        ((JavascriptExecutor) driver).executeScript(
+            "Object.defineProperty(navigator, 'webdriver', {get: () => undefined})"
+        );
+
+        driver.manage().timeouts().pageLoadTimeout(PAGE_WAIT);
+        driver.manage().timeouts().implicitlyWait(Duration.ofSeconds(5));
+
+        log.info("Chrome driver ready.");
+        return driver;
+    }
+
+    // ── Step 1: Login ─────────────────────────────────────────────────────────
+
+    private static void step1_login(WebDriver driver, WebDriverWait wait,
+                                     String email, String password) throws InterruptedException {
+        log.info("Navigating to login page...");
+        driver.get(LOGIN_URL);
+        humanDelay(2000, 3000);
+
+        // Fill email
+        WebElement emailField = wait.until(
+            ExpectedConditions.elementToBeClickable(By.cssSelector(SEL_EMAIL_INPUT))
+        );
+        emailField.clear();
+        typeSlowly(emailField, email);
+        humanDelay(500, 1000);
+
+        // Fill password
+        WebElement passField = driver.findElement(By.cssSelector(SEL_PASSWORD_INPUT));
+        passField.clear();
+        typeSlowly(passField, password);
+        humanDelay(700, 1200);
+
+        // Click login
+        WebElement loginBtn = wait.until(
+            ExpectedConditions.elementToBeClickable(By.cssSelector(SEL_LOGIN_BUTTON))
+        );
+        loginBtn.click();
+        log.info("Login submitted. Waiting for home page...");
+
+        // Wait until URL changes away from login page
+        wait.until(ExpectedConditions.not(
+            ExpectedConditions.urlContains("nlogin")
+        ));
+        humanDelay(2000, 3500);
+        log.info("Logged in. Current URL: {}", driver.getCurrentUrl());
+    }
+
+    // ── Step 2: Open profile editor ───────────────────────────────────────────
+
+    private static void step2_openProfileEditor(WebDriver driver, WebDriverWait wait)
+            throws InterruptedException {
+        log.info("Navigating to profile page...");
+        driver.get(PROFILE_URL);
+        humanDelay(3000, 4000);
+
+        // Try to click the edit (pencil) icon on the Resume Headline widget
+        // This opens the editable form without changing any data
+        try {
+            WebElement editIcon = wait.until(
+                ExpectedConditions.elementToBeClickable(By.cssSelector(SEL_HEADLINE_EDIT))
+            );
+            scrollToElement(driver, editIcon);
+            humanDelay(600, 1000);
+            editIcon.click();
+            log.info("Opened resume headline edit widget.");
+            humanDelay(1500, 2000);
+        } catch (TimeoutException e) {
+            // Widget selector may have changed — fall through to save attempt anyway
+            log.warn("Could not find headline edit icon (selector may have changed). " +
+                     "Attempting direct save...");
+        }
+    }
+
+    // ── Step 3: Click Save ────────────────────────────────────────────────────
+
+    private static void step3_saveProfile(WebDriver driver, WebDriverWait wait)
+            throws InterruptedException {
+        log.info("Looking for Save button...");
+
+        try {
+            WebElement saveBtn = wait.until(
+                ExpectedConditions.elementToBeClickable(By.cssSelector(SEL_SAVE_BUTTON))
+            );
+            scrollToElement(driver, saveBtn);
+            humanDelay(600, 1000);
+            saveBtn.click();
+            log.info("Clicked Save button.");
+            humanDelay(2000, 3000);
+
+            // Confirm the save succeeded (Naukri shows a success toast/banner)
+            try {
+                wait.until(ExpectedConditions.presenceOfElementLocated(
+                    By.cssSelector(".saveSuccess, .toast-success, [class*='success']")
+                ));
+                log.info("Save confirmation detected.");
+            } catch (TimeoutException e) {
+                // Toast may be too fast — not a failure
+                log.info("No success toast detected (may have been too quick). Continuing.");
+            }
+
+        } catch (TimeoutException e) {
+            // If save button not found, try clicking via JavaScript as fallback
+            log.warn("Save button not found by CSS. Attempting JavaScript click fallback...");
+            boolean saved = tryJsSave(driver);
+            if (!saved) {
+                throw new RuntimeException(
+                    "Could not find or click Save button. " +
+                    "Naukri may have updated their UI — check the selectors in NaukriProfileUpdater.java"
+                );
+            }
+        }
+    }
+
+    // ── Helpers ───────────────────────────────────────────────────────────────
+
+    /**
+     * Types text character by character with small random delays — mimics human typing.
+     */
+    private static void typeSlowly(WebElement element, String text) throws InterruptedException {
+        for (char c : text.toCharArray()) {
+            element.sendKeys(String.valueOf(c));
+            Thread.sleep(50 + RNG.nextInt(80)); // 50–130ms per key
+        }
+    }
+
+    /**
+     * Scrolls a web element into view using JavaScript.
+     */
+    private static void scrollToElement(WebDriver driver, WebElement element) {
+        ((JavascriptExecutor) driver).executeScript(
+            "arguments[0].scrollIntoView({behavior: 'smooth', block: 'center'});", element
+        );
+    }
+
+    /**
+     * Tries to find and click a save button via JavaScript (fallback).
+     */
+    private static boolean tryJsSave(WebDriver driver) {
+        try {
+            Boolean result = (Boolean) ((JavascriptExecutor) driver).executeScript(
+                "var btns = document.querySelectorAll('button');" +
+                "for(var i=0; i<btns.length; i++){" +
+                "  if(btns[i].innerText.trim().toLowerCase()==='save'){" +
+                "    btns[i].click(); return true;" +
+                "  }" +
+                "}" +
+                "return false;"
+            );
+            return Boolean.TRUE.equals(result);
+        } catch (Exception e) {
+            return false;
+        }
+    }
+
+    /**
+     * Waits a random amount of time between minMs and maxMs milliseconds.
+     * Makes the bot behave less like a bot.
+     */
+    private static void humanDelay(int minMs, int maxMs) throws InterruptedException {
+        int delay = minMs + RNG.nextInt(maxMs - minMs);
+        log.debug("Waiting {}ms...", delay);
+        Thread.sleep(delay);
+    }
+}

@@ -1,0 +1,21 @@
+<configuration>
+
+    <appender name="CONSOLE" class="ch.qos.logback.core.ConsoleAppender">
+        <encoder>
+            <pattern>%d{HH:mm:ss} [%level] %msg%n</pattern>
+        </encoder>
+    </appender>
+
+    <!-- Silence noisy Selenium/WDM internal logs -->
+    <logger name="io.github.bonigarcia" level="WARN"/>
+    <logger name="org.openqa.selenium"  level="WARN"/>
+    <logger name="org.asynchttpclient"  level="WARN"/>
+
+    <!-- Our app logs at INFO -->
+    <logger name="com.naukri" level="INFO"/>
+
+    <root level="WARN">
+        <appender-ref ref="CONSOLE"/>
+    </root>
+
+</configuration>

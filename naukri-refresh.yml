@@ -1,0 +1,63 @@
+name: Naukri Daily Profile Refresh
+
+on:
+  # ── Scheduled trigger ────────────────────────────────────────────────────────
+  # Runs every day at 02:30 UTC = 08:00 IST (good time — recruiters start searching ~9–10 AM)
+  # Cron syntax: minute hour day-of-month month day-of-week
+  schedule:
+    - cron: '30 2 * * *'
+
+  # ── Manual trigger ───────────────────────────────────────────────────────────
+  # You can also run it anytime from the GitHub Actions tab → "Run workflow"
+  workflow_dispatch:
+
+jobs:
+  refresh-profile:
+    name: Update Naukri profile timestamp
+    runs-on: ubuntu-latest
+
+    steps:
+
+      # 1. Check out your code
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      # 2. Set up Java 17
+      - name: Set up Java 17
+        uses: actions/setup-java@v4
+        with:
+          java-version: '17'
+          distribution: 'temurin'
+          cache: maven          # caches ~/.m2 between runs — faster builds
+
+      # 3. Install Google Chrome (GitHub runners have it, but pin a stable version)
+      - name: Install Chrome
+        uses: browser-actions/setup-chrome@v1
+        with:
+          chrome-version: stable
+
+      # 4. Build the fat JAR (skips tests — there are none to run)
+      - name: Build JAR
+        run: mvn -B package -DskipTests --no-transfer-progress
+
+      # 5. Run the automation
+      #    Credentials come from GitHub Secrets — never stored in code
+      - name: Run Naukri profile updater
+        env:
+          NAUKRI_EMAIL:    ${{ secrets.NAUKRI_EMAIL }}
+          NAUKRI_PASSWORD: ${{ secrets.NAUKRI_PASSWORD }}
+          # Selenium needs a display even in headless mode on some Linux runners
+          DISPLAY: ':99'
+        run: |
+          java -jar target/naukri-automation-1.0.0.jar
+
+      # 6. On failure, print a clear message
+      - name: Report status
+        if: failure()
+        run: |
+          echo "❌ Profile update failed. Check the logs above."
+          echo "Common causes:"
+          echo "  - Naukri changed their UI (update CSS selectors)"
+          echo "  - OTP / CAPTCHA was triggered (try again later)"
+          echo "  - Wrong credentials in GitHub Secrets"
+          exit 1
