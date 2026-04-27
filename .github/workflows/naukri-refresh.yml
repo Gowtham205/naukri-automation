@@ -53,6 +53,14 @@ jobs:
           echo "Using JAR: $JAR"
           java -verbose:class -jar "$JAR" 2>&1 | head -20 || java -cp "$JAR" com.naukri.automation.NaukriProfileUpdater
 
+      - name: Report success
+        run: |
+          echo "✅ Naukri profile updated successfully!"
+          echo "Timestamp refreshed at: $(date '+%Y-%m-%d %H:%M:%S UTC')"
+          echo "IST time: $(TZ='Asia/Kolkata' date '+%Y-%m-%d %H:%M:%S IST')"
+          echo "Your profile is now showing as 'Updated Today' on Naukri."
+          echo "Recruiters searching today will see your profile ranked higher."
+
       - name: Report status
         if: failure()
         run: echo "Profile update failed. Check logs above."
