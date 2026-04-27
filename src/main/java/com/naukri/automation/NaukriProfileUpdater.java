@@ -40,13 +40,13 @@ public class NaukriProfileUpdater {
 
     // ── Selectors (update these if Naukri changes its DOM) ────────────────────
     // Login page
-    private static final String SEL_EMAIL_INPUT    = "input[placeholder='Enter your active Email ID / Username']";
-    private static final String SEL_PASSWORD_INPUT = "input[placeholder='Enter your password']";
+    private static final String SEL_EMAIL_INPUT    = "input[placeholder='Enter Email ID / Username']";
+    private static final String SEL_PASSWORD_INPUT = "input[placeholder='Enter Password']";
     private static final String SEL_LOGIN_BUTTON   = "button[type='submit']";
 
     // Profile page — "Resume headline" section Save button
     // Naukri has multiple save buttons; we target the one inside the headline widget
-    private static final String SEL_HEADLINE_EDIT  = "div.widgetHead.editIcon";          // pencil icon to open edit
+    private static final String SEL_HEADLINE_EDIT  = "em.icon.edit";          // pencil icon to open edit
     private static final String SEL_SAVE_BUTTON     = "button.saveBtn, input.btnGreen";   // save inside the widget
 
     // ── Random delay helper ───────────────────────────────────────────────────
@@ -57,8 +57,10 @@ public class NaukriProfileUpdater {
                 LocalDateTime.now().format(DateTimeFormatter.ISO_LOCAL_DATE_TIME));
 
         // Read credentials from environment
-        String email    = System.getenv("NAUKRI_EMAIL");
-        String password = System.getenv("NAUKRI_PASSWORD");
+//        String email    = System.getenv("NAUKRI_EMAIL");
+//        String password = System.getenv("NAUKRI_PASSWORD");
+        String email = "gowthamkumar205@gmail.com";
+        String password = "Gowtham@143";
 
         if (email == null || email.isBlank() || password == null || password.isBlank()) {
             log.error("NAUKRI_EMAIL or NAUKRI_PASSWORD environment variable is not set. Exiting.");
@@ -96,7 +98,7 @@ public class NaukriProfileUpdater {
         ChromeOptions options = new ChromeOptions();
 
         // Headless mode — required on servers with no display
-        options.addArguments("--headless=new");
+//        options.addArguments("--headless=new");
         options.addArguments("--no-sandbox");
         options.addArguments("--disable-dev-shm-usage");
         options.addArguments("--disable-gpu");
@@ -134,6 +136,7 @@ public class NaukriProfileUpdater {
                                      String email, String password) throws InterruptedException {
         log.info("Navigating to login page...");
         driver.get(LOGIN_URL);
+        driver.manage().window().maximize();
         humanDelay(2000, 3000);
 
         // Fill email
@@ -199,7 +202,7 @@ public class NaukriProfileUpdater {
 
         try {
             WebElement saveBtn = wait.until(
-                ExpectedConditions.elementToBeClickable(By.cssSelector(SEL_SAVE_BUTTON))
+                ExpectedConditions.elementToBeClickable(By.id("saveBasicDetailsBtn"))
             );
             scrollToElement(driver, saveBtn);
             humanDelay(600, 1000);
