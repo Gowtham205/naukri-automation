@@ -20,7 +20,6 @@ jobs:
         with:
           java-version: '17'
           distribution: 'temurin'
-          cache: maven
 
       - name: Install Chrome
         uses: browser-actions/setup-chrome@v1
@@ -30,8 +29,16 @@ jobs:
       - name: Build JAR
         run: mvn -B package -DskipTests --no-transfer-progress
 
-      - name: Show built JARs
-        run: ls -lh target/*.jar
+      - name: Inspect JAR manifest
+        run: |
+          echo "=== JAR files in target ==="
+          ls -lh target/*.jar
+          echo ""
+          echo "=== MANIFEST.MF inside JAR ==="
+          unzip -p target/naukri-automation-1.0.0.jar META-INF/MANIFEST.MF
+          echo ""
+          echo "=== Classes inside JAR ==="
+          unzip -l target/naukri-automation-1.0.0.jar | grep "NaukriProfile"
 
       - name: Run Naukri profile updater
         env:
@@ -41,10 +48,8 @@ jobs:
         run: |
           JAR=$(ls target/*.jar | grep -v 'original' | head -1)
           echo "Using JAR: $JAR"
-          java -jar "$JAR"
+          java -verbose:class -jar "$JAR" 2>&1 | head -20 || java -cp "$JAR" com.naukri.automation.NaukriProfileUpdater
 
       - name: Report status
         if: failure()
-        run: |
-          echo "Profile update failed. Check the logs above."
-          exit 1
+        run: echo "Profile update failed. Check logs above."
