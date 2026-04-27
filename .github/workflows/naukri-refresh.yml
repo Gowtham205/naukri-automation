@@ -51,7 +51,7 @@ jobs:
         run: |
           JAR=$(ls target/*.jar | grep -v 'original' | head -1)
           echo "Using JAR: $JAR"
-          java -verbose:class -jar "$JAR" 2>&1 | head -20 || java -cp "$JAR" com.naukri.automation.NaukriProfileUpdater
+          java -jar "$JAR" 2>&1 | head -20 || java -cp "$JAR" com.naukri.automation.NaukriProfileUpdater
 
       - name: Report success
         run: |

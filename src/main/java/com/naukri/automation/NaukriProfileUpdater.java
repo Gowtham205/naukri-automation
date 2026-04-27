@@ -33,6 +33,7 @@ public class NaukriProfileUpdater {
     private static final String NAUKRI_HOME    = "https://www.naukri.com";
     private static final String LOGIN_URL      = "https://www.naukri.com/nlogin/login";
     private static final String PROFILE_URL    = "https://www.naukri.com/mnjuser/profile";
+    private static final String LOGOUT_URL = "https://www.naukri.com/nlogin/logout";
 
     // ── Timeouts ──────────────────────────────────────────────────────────────
     private static final Duration PAGE_WAIT    = Duration.ofSeconds(20);
@@ -40,14 +41,14 @@ public class NaukriProfileUpdater {
 
     // ── Selectors (update these if Naukri changes its DOM) ────────────────────
     // Login page
-    private static final String SEL_EMAIL_INPUT    = "input[placeholder='Enter your active Email ID / Username']";
-    private static final String SEL_PASSWORD_INPUT = "input[placeholder='Enter your password']";
+    private static final String SEL_EMAIL_INPUT    = "input[placeholder='Enter Email ID / Username']";
+    private static final String SEL_PASSWORD_INPUT = "input[placeholder='Enter Password']";
     private static final String SEL_LOGIN_BUTTON   = "button[type='submit']";
 
     // Profile page — "Resume headline" section Save button
     // Naukri has multiple save buttons; we target the one inside the headline widget
-    private static final String SEL_HEADLINE_EDIT  = "div.widgetHead.editIcon";          // pencil icon to open edit
-    private static final String SEL_SAVE_BUTTON     = "button.saveBtn, input.btnGreen";   // save inside the widget
+    private static final String SEL_HEADLINE_EDIT  = "em.icon.edit";          // pencil icon to open edit
+    private static final String SEL_SAVE_BUTTON     = "saveBasicDetailsBtn";   // save inside the widget
 
     // ── Random delay helper ───────────────────────────────────────────────────
     private static final Random RNG = new Random();
@@ -73,6 +74,7 @@ public class NaukriProfileUpdater {
             step1_login(driver, wait, email, password);
             step2_openProfileEditor(driver, wait);
             step3_saveProfile(driver, wait);
+            step4_logout(driver);
 
             log.info("✅  Profile updated successfully. Timestamp refreshed on Naukri.");
 
@@ -199,7 +201,7 @@ public class NaukriProfileUpdater {
 
         try {
             WebElement saveBtn = wait.until(
-                ExpectedConditions.elementToBeClickable(By.cssSelector(SEL_SAVE_BUTTON))
+                ExpectedConditions.elementToBeClickable(By.id(SEL_SAVE_BUTTON))
             );
             scrollToElement(driver, saveBtn);
             humanDelay(600, 1000);
@@ -229,6 +231,15 @@ public class NaukriProfileUpdater {
                 );
             }
         }
+    }
+
+    // ── Step 4: Logout ────────────────────────────────────────────────────
+
+    private static void step4_logout(WebDriver driver) throws InterruptedException {
+        log.info("Logging out...");
+        driver.get(LOGOUT_URL);
+        humanDelay(2000, 3000);
+        log.info("Logged out successfully.");
     }
 
     // ── Helpers ───────────────────────────────────────────────────────────────
