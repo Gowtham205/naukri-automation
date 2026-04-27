@@ -15,3 +15,4 @@ Thumbs.db
 # Never commit credentials
 .env
 secrets.properties
+target/

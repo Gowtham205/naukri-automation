@@ -31,13 +31,16 @@ jobs:
 
       - name: Inspect JAR manifest
         run: |
-          echo "=== JAR files in target ==="
-          ls -lh target/*.jar
+          echo "=== Source files found ==="
+          find . -name "*.java" -type f
+          echo ""
+          echo "=== Compiled classes ==="
+          find target/classes -name "*.class" 2>/dev/null || echo "NO CLASSES FOUND in target/classes"
           echo ""
           echo "=== MANIFEST.MF inside JAR ==="
           unzip -p target/naukri-automation-1.0.0.jar META-INF/MANIFEST.MF
           echo ""
-          echo "=== Classes inside JAR ==="
+          echo "=== Our class inside JAR ==="
           unzip -l target/naukri-automation-1.0.0.jar | grep "NaukriProfile"
 
       - name: Run Naukri profile updater
