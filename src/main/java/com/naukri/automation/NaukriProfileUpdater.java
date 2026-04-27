@@ -59,8 +59,9 @@ public class NaukriProfileUpdater {
         // Read credentials from environment
 //        String email    = System.getenv("NAUKRI_EMAIL");
 //        String password = System.getenv("NAUKRI_PASSWORD");
+        // For Local Testing
         String email = "gowthamkumar205@gmail.com";
-        String password = "Gowtham@143";
+        String password = "";
 
         if (email == null || email.isBlank() || password == null || password.isBlank()) {
             log.error("NAUKRI_EMAIL or NAUKRI_PASSWORD environment variable is not set. Exiting.");
