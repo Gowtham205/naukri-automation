@@ -1,0 +1,50 @@
+name: Naukri Daily Profile Refresh
+
+on:
+  schedule:
+    - cron: '30 2 * * *'
+  workflow_dispatch:
+
+jobs:
+  refresh-profile:
+    name: Update Naukri profile timestamp
+    runs-on: ubuntu-latest
+
+    steps:
+
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Java 17
+        uses: actions/setup-java@v4
+        with:
+          java-version: '17'
+          distribution: 'temurin'
+          cache: maven
+
+      - name: Install Chrome
+        uses: browser-actions/setup-chrome@v1
+        with:
+          chrome-version: stable
+
+      - name: Build JAR
+        run: mvn -B package -DskipTests --no-transfer-progress
+
+      - name: Show built JARs
+        run: ls -lh target/*.jar
+
+      - name: Run Naukri profile updater
+        env:
+          NAUKRI_EMAIL: ${{ secrets.NAUKRI_EMAIL }}
+          NAUKRI_PASSWORD: ${{ secrets.NAUKRI_PASSWORD }}
+          DISPLAY: ':99'
+        run: |
+          JAR=$(ls target/*.jar | grep -v 'original' | head -1)
+          echo "Using JAR: $JAR"
+          java -jar "$JAR"
+
+      - name: Report status
+        if: failure()
+        run: |
+          echo "Profile update failed. Check the logs above."
+          exit 1
