@@ -269,17 +269,18 @@ public class NaukriProfileUpdater {
 
         if (!submitted) throw new RuntimeException("Could not click Sign In button.");
 
-        // Wait until logged in — homepage URL stays same but page content changes
+        // Wait for login to complete — Naukri stays on same URL but shows user menu
         log.info("Waiting for login to complete...");
+        humanDelay(4000, 5000); // give it time to process
+
+        // Verify login by checking page source for logged-in indicators
         wait.until(ExpectedConditions.or(
-                ExpectedConditions.urlContains("mnjuser"),
-                ExpectedConditions.urlContains("homepage"),
                 ExpectedConditions.presenceOfElementLocated(
-                        By.cssSelector("a[href*='mnjuser'], .user-name, [class*='loggedIn']")
-                )
+                        By.cssSelector("div.nI-gNb-drawer__bars, a[href*='mnjuser/profile'], div[class*='user'], .user-name")
+                ),
+                ExpectedConditions.titleContains("Jobs")
         ));
 
-        humanDelay(2000, 3000);
         log.info("Logged in successfully. URL: {}", driver.getCurrentUrl());
     }
 
@@ -287,25 +288,47 @@ public class NaukriProfileUpdater {
 
     private static void step2_openProfileEditor(WebDriver driver, WebDriverWait wait)
             throws InterruptedException {
-        log.info("Navigating to profile page...");
+        log.info("Navigating directly to profile page...");
         driver.get(PROFILE_URL);
-        humanDelay(3000, 4000);
+        humanDelay(4000, 5000);
 
-        // Try to click the edit (pencil) icon on the Resume Headline widget
-        // This opens the editable form without changing any data
-        try {
-            WebElement editIcon = wait.until(
-                ExpectedConditions.elementToBeClickable(By.cssSelector(SEL_HEADLINE_EDIT))
-            );
-            scrollToElement(driver, editIcon);
-            humanDelay(600, 1000);
-            editIcon.click();
-            log.info("Opened resume headline edit widget.");
-            humanDelay(1500, 2000);
-        } catch (TimeoutException e) {
-            // Widget selector may have changed — fall through to save attempt anyway
-            log.warn("Could not find headline edit icon (selector may have changed). " +
-                     "Attempting direct save...");
+        log.info("Current URL: {}", driver.getCurrentUrl());
+
+        // Check we didn't get redirected to login
+        if (driver.getCurrentUrl().contains("nlogin")) {
+            throw new RuntimeException("Redirected to login — session not established.");
+        }
+
+        // Try multiple edit button selectors
+        String[] editSelectors = {
+                "em.icon.edit",
+                "em[class*='edit']",
+                "div.hdn em",
+                "span.editIcon",
+                "[class*='edit']",
+                "div.widgetHead span.edit"
+        };
+
+        boolean clicked = false;
+        for (String sel : editSelectors) {
+            try {
+                WebElement editIcon = wait.until(
+                        ExpectedConditions.elementToBeClickable(By.cssSelector(sel))
+                );
+                scrollToElement(driver, editIcon);
+                humanDelay(800, 1200);
+                editIcon.click();
+                log.info("Clicked edit icon with selector: {}", sel);
+                clicked = true;
+                humanDelay(2000, 2500);
+                break;
+            } catch (TimeoutException e) {
+                log.debug("Edit selector not found: {}", sel);
+            }
+        }
+
+        if (!clicked) {
+            log.warn("No edit icon found — attempting save directly...");
         }
     }
 
