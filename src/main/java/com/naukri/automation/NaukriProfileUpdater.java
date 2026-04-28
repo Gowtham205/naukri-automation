@@ -132,7 +132,7 @@ public class NaukriProfileUpdater {
 
     // ── Step 1: Login ─────────────────────────────────────────────────────────
 
-    private static void step1_login(WebDriver driver, WebDriverWait wait,
+    /*private static void step1_login(WebDriver driver, WebDriverWait wait,
                                      String email, String password) throws InterruptedException {
         log.info("Navigating to login page...");
         driver.get(LOGIN_URL);
@@ -165,6 +165,122 @@ public class NaukriProfileUpdater {
         ));
         humanDelay(2000, 3500);
         log.info("Logged in. Current URL: {}", driver.getCurrentUrl());
+    }*/
+
+    private static void step1_login(WebDriver driver, WebDriverWait wait,
+                                    String email, String password) throws InterruptedException {
+        log.info("Navigating to Naukri homepage...");
+        driver.get(NAUKRI_HOME);
+        humanDelay(3000, 4000);
+
+        // Click the Login button on homepage
+        log.info("Looking for Login button on homepage...");
+        String[] loginBtnSelectors = {
+                "a[href*='login']",
+                "a.login",
+                "button.login",
+                "a[title='Login']",
+                "li.login a",
+                "a[data-ga-track*='login']"
+        };
+
+        boolean loginClicked = false;
+        for (String sel : loginBtnSelectors) {
+            try {
+                WebElement loginLink = wait.until(
+                        ExpectedConditions.elementToBeClickable(By.cssSelector(sel))
+                );
+                scrollToElement(driver, loginLink);
+                humanDelay(500, 1000);
+                loginLink.click();
+                log.info("Clicked login button with selector: {}", sel);
+                loginClicked = true;
+                humanDelay(2000, 3000);
+                break;
+            } catch (TimeoutException e) {
+                log.debug("Login button not found with: {}", sel);
+            }
+        }
+
+        if (!loginClicked) {
+            throw new RuntimeException("Could not find Login button on homepage.");
+        }
+
+        // Fill email in the modal that appears
+        log.info("Filling email...");
+        String[] emailSelectors = {
+                "input[type='text']",
+                "input[placeholder*='Email']",
+                "input[placeholder*='email']",
+                "input[placeholder*='Username']",
+                "input[name='username']"
+        };
+
+        WebElement emailField = null;
+        for (String sel : emailSelectors) {
+            try {
+                emailField = wait.until(
+                        ExpectedConditions.elementToBeClickable(By.cssSelector(sel))
+                );
+                log.info("Found email field: {}", sel);
+                break;
+            } catch (TimeoutException e) {
+                log.debug("Email selector not found: {}", sel);
+            }
+        }
+
+        if (emailField == null) throw new RuntimeException("Email field not found.");
+        emailField.clear();
+        typeSlowly(emailField, email);
+        humanDelay(500, 1000);
+
+        // Fill password
+        log.info("Filling password...");
+        WebElement passField = wait.until(
+                ExpectedConditions.elementToBeClickable(By.cssSelector("input[type='password']"))
+        );
+        passField.clear();
+        typeSlowly(passField, password);
+        humanDelay(700, 1200);
+
+        // Click Sign In inside the modal
+        log.info("Submitting login...");
+        String[] submitSelectors = {
+                "button[type='submit']",
+                "button.blue-btn",
+                "button[class*='login']",
+                "input[type='submit']"
+        };
+
+        boolean submitted = false;
+        for (String sel : submitSelectors) {
+            try {
+                WebElement submitBtn = wait.until(
+                        ExpectedConditions.elementToBeClickable(By.cssSelector(sel))
+                );
+                submitBtn.click();
+                log.info("Clicked submit with selector: {}", sel);
+                submitted = true;
+                break;
+            } catch (TimeoutException e) {
+                log.debug("Submit selector not found: {}", sel);
+            }
+        }
+
+        if (!submitted) throw new RuntimeException("Could not click Sign In button.");
+
+        // Wait until logged in — homepage URL stays same but page content changes
+        log.info("Waiting for login to complete...");
+        wait.until(ExpectedConditions.or(
+                ExpectedConditions.urlContains("mnjuser"),
+                ExpectedConditions.urlContains("homepage"),
+                ExpectedConditions.presenceOfElementLocated(
+                        By.cssSelector("a[href*='mnjuser'], .user-name, [class*='loggedIn']")
+                )
+        ));
+
+        humanDelay(2000, 3000);
+        log.info("Logged in successfully. URL: {}", driver.getCurrentUrl());
     }
 
     // ── Step 2: Open profile editor ───────────────────────────────────────────
