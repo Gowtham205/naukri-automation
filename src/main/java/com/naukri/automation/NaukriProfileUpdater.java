@@ -33,6 +33,7 @@ public class NaukriProfileUpdater {
     private static final String NAUKRI_HOME    = "https://www.naukri.com";
     private static final String LOGIN_URL      = "https://www.naukri.com/nlogin/login";
     private static final String PROFILE_URL    = "https://www.naukri.com/mnjuser/profile";
+    private static final String LOGOUT_URL = "https://www.naukri.com/nlogin/logout";
 
     // ── Timeouts ──────────────────────────────────────────────────────────────
     private static final Duration PAGE_WAIT    = Duration.ofSeconds(20);
@@ -47,7 +48,7 @@ public class NaukriProfileUpdater {
     // Profile page — "Resume headline" section Save button
     // Naukri has multiple save buttons; we target the one inside the headline widget
     private static final String SEL_HEADLINE_EDIT  = "em.icon.edit";          // pencil icon to open edit
-    private static final String SEL_SAVE_BUTTON     = "button.saveBtn, input.btnGreen";   // save inside the widget
+    private static final String SEL_SAVE_BUTTON     = "saveBasicDetailsBtn";   // save inside the widget
 
     // ── Random delay helper ───────────────────────────────────────────────────
     private static final Random RNG = new Random();
@@ -61,7 +62,7 @@ public class NaukriProfileUpdater {
 //        String password = System.getenv("NAUKRI_PASSWORD");
         // For Local Testing
         String email = "gowthamkumar205@gmail.com";
-        String password = "";
+        String password = "Gowtham@143";
 
         if (email == null || email.isBlank() || password == null || password.isBlank()) {
             log.error("NAUKRI_EMAIL or NAUKRI_PASSWORD environment variable is not set. Exiting.");
@@ -76,6 +77,8 @@ public class NaukriProfileUpdater {
             step1_login(driver, wait, email, password);
             step2_openProfileEditor(driver, wait);
             step3_saveProfile(driver, wait);
+            step3b_closeSuccessPopup(driver, wait);
+            step4_logout(driver, wait);
 
             log.info("✅  Profile updated successfully. Timestamp refreshed on Naukri.");
 
@@ -173,6 +176,7 @@ public class NaukriProfileUpdater {
                                     String email, String password) throws InterruptedException {
         log.info("Navigating to Naukri homepage...");
         driver.get(NAUKRI_HOME);
+        driver.manage().window().maximize();
         humanDelay(3000, 4000);
 
         // Click the Login button on homepage
@@ -273,82 +277,281 @@ public class NaukriProfileUpdater {
 
         // Wait until logged in — homepage URL stays same but page content changes
         log.info("Waiting for login to complete...");
+        humanDelay(4000, 5000); // give it time to process
+
+        // Verify login by checking page source for logged-in indicators
         wait.until(ExpectedConditions.or(
-                ExpectedConditions.urlContains("mnjuser"),
-                ExpectedConditions.urlContains("homepage"),
                 ExpectedConditions.presenceOfElementLocated(
-                        By.cssSelector("a[href*='mnjuser'], .user-name, [class*='loggedIn']")
-                )
+                        By.cssSelector("div.nI-gNb-drawer__bars, a[href*='mnjuser/profile'], div[class*='user'], .user-name")
+                ),
+                ExpectedConditions.titleContains("Jobs")
         ));
 
-        humanDelay(2000, 3000);
         log.info("Logged in successfully. URL: {}", driver.getCurrentUrl());
     }
 
-    // ── Step 2: Open profile editor ───────────────────────────────────────────
+    // ── Step 2: Navigate to profile via UI ────────────────────────────────────
 
     private static void step2_openProfileEditor(WebDriver driver, WebDriverWait wait)
             throws InterruptedException {
-        log.info("Navigating to profile page...");
-        driver.get(PROFILE_URL);
-        humanDelay(3000, 4000);
+        log.info("Looking for profile icon/menu in navbar...");
 
-        // Try to click the edit (pencil) icon on the Resume Headline widget
-        // This opens the editable form without changing any data
-        try {
-            WebElement editIcon = wait.until(
-                ExpectedConditions.elementToBeClickable(By.cssSelector(SEL_HEADLINE_EDIT))
-            );
-            scrollToElement(driver, editIcon);
-            humanDelay(600, 1000);
-            editIcon.click();
-            log.info("Opened resume headline edit widget.");
-            humanDelay(1500, 2000);
-        } catch (TimeoutException e) {
-            // Widget selector may have changed — fall through to save attempt anyway
-            log.warn("Could not find headline edit icon (selector may have changed). " +
-                     "Attempting direct save...");
+        // Click on the user avatar/name in the top navbar
+        String[] profileIconSelectors = {
+                "div.nI-gNb-drawer__bars",
+                "span[class*='username']",
+                "div[class*='user-name']",
+                "a[href*='mnjuser']",
+                "li[class*='user']",
+                "div.user-name",
+                "span.nI-gNb-menuBtn"
+        };
+
+        boolean profileClicked = false;
+        for (String sel : profileIconSelectors) {
+            try {
+                WebElement profileIcon = wait.until(
+                        ExpectedConditions.elementToBeClickable(By.cssSelector(sel))
+                );
+                scrollToElement(driver, profileIcon);
+                humanDelay(800, 1200);
+                profileIcon.click();
+                log.info("Clicked profile icon with selector: {}", sel);
+                profileClicked = true;
+                humanDelay(1500, 2000);
+                break;
+            } catch (TimeoutException e) {
+                log.debug("Profile icon not found: {}", sel);
+            }
+        }
+
+        if (!profileClicked) {
+            log.warn("Could not click profile icon, trying direct menu item...");
+        }
+
+        // Click "View & Update Profile" from the dropdown
+        String[] viewProfileSelectors = {
+                "a[href*='mnjuser/profile']",
+                "a[title*='profile']",
+                "a[title*='Profile']",
+                "li a[href*='profile']",
+                "a[class*='profile']"
+        };
+
+        for (String sel : viewProfileSelectors) {
+            try {
+                WebElement viewProfile = wait.until(
+                        ExpectedConditions.elementToBeClickable(By.cssSelector(sel))
+                );
+                humanDelay(500, 800);
+                viewProfile.click();
+                log.info("Clicked View Profile with selector: {}", sel);
+                humanDelay(3000, 4000);
+                break;
+            } catch (TimeoutException e) {
+                log.debug("View profile not found: {}", sel);
+            }
+        }
+
+        log.info("Current URL after profile nav: {}", driver.getCurrentUrl());
+
+        // Now click the edit icon on the Resume Headline section
+        log.info("Looking for edit icon on profile page...");
+        String[] editSelectors = {
+                "em.icon.edit",
+                "em[class*='edit']",
+                "div.hdn em",
+                "span[class*='edit']",
+                "[class*='editIcon']",
+                "div.widgetHead em"
+        };
+
+        boolean clicked = false;
+        for (String sel : editSelectors) {
+            try {
+                WebElement editIcon = wait.until(
+                        ExpectedConditions.elementToBeClickable(By.cssSelector(sel))
+                );
+                scrollToElement(driver, editIcon);
+                humanDelay(800, 1200);
+                editIcon.click();
+                log.info("Clicked edit icon with selector: {}", sel);
+                clicked = true;
+                humanDelay(2000, 2500);
+                break;
+            } catch (TimeoutException e) {
+                log.debug("Edit selector not found: {}", sel);
+            }
+        }
+
+        if (!clicked) {
+            log.warn("No edit icon found — will attempt save directly...");
         }
     }
 
-    // ── Step 3: Click Save ────────────────────────────────────────────────────
+// ── Step 3: Save via UI ───────────────────────────────────────────────────
 
     private static void step3_saveProfile(WebDriver driver, WebDriverWait wait)
             throws InterruptedException {
         log.info("Looking for Save button...");
 
+        boolean saved = false;
         try {
             WebElement saveBtn = wait.until(
-                ExpectedConditions.elementToBeClickable(By.id("saveBasicDetailsBtn"))
+                    ExpectedConditions.elementToBeClickable(By.id(SEL_SAVE_BUTTON))
             );
             scrollToElement(driver, saveBtn);
             humanDelay(600, 1000);
             saveBtn.click();
-            log.info("Clicked Save button.");
-            humanDelay(2000, 3000);
-
-            // Confirm the save succeeded (Naukri shows a success toast/banner)
-            try {
-                wait.until(ExpectedConditions.presenceOfElementLocated(
-                    By.cssSelector(".saveSuccess, .toast-success, [class*='success']")
-                ));
-                log.info("Save confirmation detected.");
-            } catch (TimeoutException e) {
-                // Toast may be too fast — not a failure
-                log.info("No success toast detected (may have been too quick). Continuing.");
-            }
-
+            log.info("Clicked Save with selector: {}", SEL_SAVE_BUTTON);
+            saved = true;
+            humanDelay(3000, 4000);
         } catch (TimeoutException e) {
-            // If save button not found, try clicking via JavaScript as fallback
-            log.warn("Save button not found by CSS. Attempting JavaScript click fallback...");
-            boolean saved = tryJsSave(driver);
-            if (!saved) {
-                throw new RuntimeException(
-                    "Could not find or click Save button. " +
-                    "Naukri may have updated their UI — check the selectors in NaukriProfileUpdater.java"
-                );
+            log.debug("Save selector not found: {}", SEL_SAVE_BUTTON);
+        }
+
+        if (!saved) {
+            log.warn("CSS selectors failed, trying JavaScript save...");
+            saved = tryJsSave(driver);
+        }
+
+        if (!saved) {
+            throw new RuntimeException("Could not find or click Save button.");
+        }
+
+        log.info("Profile saved successfully!");
+    }
+
+    // ── Step 3b: Close success popup after save ───────────────────────────────
+
+    private static void step3b_closeSuccessPopup(WebDriver driver, WebDriverWait wait)
+            throws InterruptedException {
+        log.info("Closing profile update success popup...");
+        humanDelay(2000, 2500); // wait for popup to fully render
+
+        boolean closed = false;
+
+        // Try JavaScript click first — more reliable for layered popups
+        try {
+            WebElement closeBtn = wait.until(
+                    ExpectedConditions.presenceOfElementLocated(
+                            By.cssSelector("div.profileUpdatedProLayer div.crossLayer span.icon")
+                    )
+            );
+            ((JavascriptExecutor) driver).executeScript("arguments[0].click();", closeBtn);
+            log.info("Closed popup via JS click on span.icon inside profileUpdatedProLayer.");
+            closed = true;
+            humanDelay(1500, 2000);
+        } catch (TimeoutException e) {
+            log.debug("Primary popup selector not found.");
+        }
+
+        // Fallback 1 — click the crossLayer div itself via JS
+        if (!closed) {
+            try {
+                WebElement crossLayer = driver.findElement(By.cssSelector("div.crossLayer"));
+                ((JavascriptExecutor) driver).executeScript("arguments[0].click();", crossLayer);
+                log.info("Closed popup via JS click on crossLayer div.");
+                closed = true;
+                humanDelay(1500, 2000);
+            } catch (NoSuchElementException e) {
+                log.debug("crossLayer div not found.");
             }
         }
+
+        // Fallback 2 — click the ltLayer overlay to dismiss
+        if (!closed) {
+            try {
+                WebElement overlay = driver.findElement(By.cssSelector("div.ltLayer"));
+                ((JavascriptExecutor) driver).executeScript("arguments[0].click();", overlay);
+                log.info("Closed popup by clicking overlay ltLayer.");
+                closed = true;
+                humanDelay(1500, 2000);
+            } catch (NoSuchElementException e) {
+                log.debug("ltLayer not found.");
+            }
+        }
+
+        // Fallback 3 — ESC key
+        if (!closed) {
+            driver.findElement(By.cssSelector("body")).sendKeys(Keys.ESCAPE);
+            log.info("Sent ESC key to dismiss popup.");
+            humanDelay(1000, 1500);
+        }
+    }
+
+// ── Step 4: Logout via UI ─────────────────────────────────────────────────
+
+    private static void step4_logout(WebDriver driver, WebDriverWait wait)
+            throws InterruptedException {
+        log.info("Logging out via UI...");
+
+        // Click profile icon/avatar again to open dropdown
+        String[] profileIconSelectors = {
+                "div.nI-gNb-drawer__bars",
+                "span[class*='username']",
+                "div[class*='user-name']",
+                "div.user-name",
+                "span.nI-gNb-menuBtn"
+        };
+
+        for (String sel : profileIconSelectors) {
+            try {
+                WebElement profileIcon = wait.until(
+                        ExpectedConditions.elementToBeClickable(By.cssSelector(sel))
+                );
+                scrollToElement(driver, profileIcon);
+                humanDelay(800, 1200);
+                profileIcon.click();
+                log.info("Clicked profile menu for logout: {}", sel);
+                humanDelay(1500, 2000);
+                break;
+            } catch (TimeoutException e) {
+                log.debug("Profile icon not found: {}", sel);
+            }
+        }
+
+        // Click Logout from dropdown
+        String[] logoutSelectors = {
+                "a[title='Logout']",
+                "a[href*='logout']",
+                "li.logout a",
+                "button[class*='logout']",
+                "a[class*='logout']"
+        };
+
+        boolean loggedOut = false;
+        for (String sel : logoutSelectors) {
+            try {
+                WebElement logoutBtn = wait.until(
+                        ExpectedConditions.elementToBeClickable(By.cssSelector(sel))
+                );
+                humanDelay(500, 800);
+                logoutBtn.click();
+                log.info("Clicked logout with selector: {}", sel);
+                loggedOut = true;
+                humanDelay(2000, 3000);
+                break;
+            } catch (TimeoutException e) {
+                log.debug("Logout selector not found: {}", sel);
+            }
+        }
+
+        if (!loggedOut) {
+            // Fallback — find logout via link text
+            try {
+                WebElement logoutLink = driver.findElement(
+                        By.xpath("//a[contains(text(),'Logout') or contains(text(),'logout') or contains(text(),'Sign Out')]")
+                );
+                logoutLink.click();
+                log.info("Clicked logout via XPath text match.");
+                humanDelay(2000, 3000);
+            } catch (NoSuchElementException e) {
+                log.warn("Could not find logout button — skipping logout.");
+            }
+        }
+
+        log.info("Logout complete.");
     }
 
     // ── Helpers ───────────────────────────────────────────────────────────────
