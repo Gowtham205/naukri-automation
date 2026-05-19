@@ -16,39 +16,39 @@ import java.util.Random;
 
 /**
  * NaukriProfileUpdater
- *
+ * <p>
  * Opens Naukri, logs in, navigates to the profile page and clicks Save
  * without making any real changes. This updates the "Last Updated" timestamp,
  * which pushes the profile higher in recruiter searches.
- *
+ * <p>
  * Credentials are read from environment variables (never hardcoded):
- *   NAUKRI_EMAIL    – your registered Naukri email
- *   NAUKRI_PASSWORD – your Naukri password
+ * NAUKRI_EMAIL    – your registered Naukri email
+ * NAUKRI_PASSWORD – your Naukri password
  */
 public class NaukriProfileUpdater {
 
     private static final Logger log = LoggerFactory.getLogger(NaukriProfileUpdater.class);
 
     // ── URLs ──────────────────────────────────────────────────────────────────
-    private static final String NAUKRI_HOME    = "https://www.naukri.com";
-    private static final String LOGIN_URL      = "https://www.naukri.com/nlogin/login";
-    private static final String PROFILE_URL    = "https://www.naukri.com/mnjuser/profile";
+    private static final String NAUKRI_HOME = "https://www.naukri.com";
+    private static final String LOGIN_URL = "https://www.naukri.com/nlogin/login";
+    private static final String PROFILE_URL = "https://www.naukri.com/mnjuser/profile";
     private static final String LOGOUT_URL = "https://www.naukri.com/nlogin/logout";
 
     // ── Timeouts ──────────────────────────────────────────────────────────────
-    private static final Duration PAGE_WAIT    = Duration.ofSeconds(20);
+    private static final Duration PAGE_WAIT = Duration.ofSeconds(20);
     private static final Duration ELEMENT_WAIT = Duration.ofSeconds(15);
 
     // ── Selectors (update these if Naukri changes its DOM) ────────────────────
     // Login page
-    private static final String SEL_EMAIL_INPUT    = "input[placeholder='Enter Email ID / Username']";
+    private static final String SEL_EMAIL_INPUT = "input[placeholder='Enter Email ID / Username']";
     private static final String SEL_PASSWORD_INPUT = "input[placeholder='Enter Password']";
-    private static final String SEL_LOGIN_BUTTON   = "button[type='submit']";
+    private static final String SEL_LOGIN_BUTTON = "button[type='submit']";
 
     // Profile page — "Resume headline" section Save button
     // Naukri has multiple save buttons; we target the one inside the headline widget
-    private static final String SEL_HEADLINE_EDIT  = "em.icon.edit";          // pencil icon to open edit
-    private static final String SEL_SAVE_BUTTON     = "saveBasicDetailsBtn";   // save inside the widget
+    private static final String SEL_HEADLINE_EDIT = "em.icon.edit";          // pencil icon to open edit
+    private static final String SEL_SAVE_BUTTON = "saveBasicDetailsBtn";   // save inside the widget
 
     // ── Random delay helper ───────────────────────────────────────────────────
     private static final Random RNG = new Random();
@@ -111,9 +111,9 @@ public class NaukriProfileUpdater {
 
         // Mimic a real browser user-agent to reduce bot-detection risk
         options.addArguments(
-            "--user-agent=Mozilla/5.0 (X11; Linux x86_64) " +
-            "AppleWebKit/537.36 (KHTML, like Gecko) " +
-            "Chrome/122.0.0.0 Safari/537.36"
+                "--user-agent=Mozilla/5.0 (X11; Linux x86_64) " +
+                        "AppleWebKit/537.36 (KHTML, like Gecko) " +
+                        "Chrome/122.0.0.0 Safari/537.36"
         );
 
         // Hide the "Chrome is being controlled by automated software" bar
@@ -124,7 +124,7 @@ public class NaukriProfileUpdater {
 
         // Remove the `navigator.webdriver` flag that bot-detection scripts check for
         ((JavascriptExecutor) driver).executeScript(
-            "Object.defineProperty(navigator, 'webdriver', {get: () => undefined})"
+                "Object.defineProperty(navigator, 'webdriver', {get: () => undefined})"
         );
 
         driver.manage().timeouts().pageLoadTimeout(PAGE_WAIT);
@@ -294,39 +294,60 @@ public class NaukriProfileUpdater {
 
     private static void step2_openProfileEditor(WebDriver driver, WebDriverWait wait)
             throws InterruptedException {
+        log.info("Checking for chatbot overlay...");
+
+        // Close chatbot overlay if present — it blocks all clicks
+        try {
+            WebElement chatbotOverlay = driver.findElement(
+                    By.cssSelector("div.chatbot_Overlay.show")
+            );
+            // Click outside the overlay to dismiss it
+            ((JavascriptExecutor) driver).executeScript(
+                    "arguments[0].style.display='none';", chatbotOverlay
+            );
+            log.info("Dismissed chatbot overlay.");
+            humanDelay(1000, 1500);
+        } catch (NoSuchElementException e) {
+            log.debug("No chatbot overlay found.");
+        }
+
+        // Also close any other overlays that might be present
+        try {
+            ((JavascriptExecutor) driver).executeScript(
+                    "var overlays = document.querySelectorAll('[class*=\"Overlay\"]');" +
+                            "overlays.forEach(function(el){ el.style.display='none'; });"
+            );
+            log.debug("Cleared all overlay elements.");
+            humanDelay(500, 800);
+        } catch (Exception e) {
+            log.debug("No overlays to clear.");
+        }
+
         log.info("Looking for profile icon/menu in navbar...");
 
-        // Click on the user avatar/name in the top navbar
+        // Now click profile icon using JavaScript to avoid any remaining intercepts
         String[] profileIconSelectors = {
                 "div.nI-gNb-drawer__bars",
                 "span[class*='username']",
                 "div[class*='user-name']",
-                "a[href*='mnjuser']",
-                "li[class*='user']",
-                "div.user-name",
-                "span.nI-gNb-menuBtn"
+                "a[href*='mnjuser']"
         };
 
-        boolean profileClicked = false;
         for (String sel : profileIconSelectors) {
             try {
-                WebElement profileIcon = wait.until(
-                        ExpectedConditions.elementToBeClickable(By.cssSelector(sel))
+                WebElement icon = wait.until(
+                        ExpectedConditions.presenceOfElementLocated(By.cssSelector(sel))
                 );
-                scrollToElement(driver, profileIcon);
+                scrollToElement(driver, icon);
                 humanDelay(800, 1200);
-                profileIcon.click();
+                // Use JS click — bypasses overlay interception
+                ((JavascriptExecutor) driver).executeScript("arguments[0].click();", icon);
                 log.info("Clicked profile icon with selector: {}", sel);
-                profileClicked = true;
                 humanDelay(1500, 2000);
                 break;
             } catch (TimeoutException e) {
                 log.debug("Profile icon not found: {}", sel);
             }
-        }
-
-        if (!profileClicked) {
-            log.warn("Could not click profile icon, trying direct menu item...");
         }
 
         // Click "View & Update Profile" from the dropdown
@@ -571,7 +592,7 @@ public class NaukriProfileUpdater {
      */
     private static void scrollToElement(WebDriver driver, WebElement element) {
         ((JavascriptExecutor) driver).executeScript(
-            "arguments[0].scrollIntoView({behavior: 'smooth', block: 'center'});", element
+                "arguments[0].scrollIntoView({behavior: 'smooth', block: 'center'});", element
         );
     }
 
@@ -581,13 +602,13 @@ public class NaukriProfileUpdater {
     private static boolean tryJsSave(WebDriver driver) {
         try {
             Boolean result = (Boolean) ((JavascriptExecutor) driver).executeScript(
-                "var btns = document.querySelectorAll('button');" +
-                "for(var i=0; i<btns.length; i++){" +
-                "  if(btns[i].innerText.trim().toLowerCase()==='save'){" +
-                "    btns[i].click(); return true;" +
-                "  }" +
-                "}" +
-                "return false;"
+                    "var btns = document.querySelectorAll('button');" +
+                            "for(var i=0; i<btns.length; i++){" +
+                            "  if(btns[i].innerText.trim().toLowerCase()==='save'){" +
+                            "    btns[i].click(); return true;" +
+                            "  }" +
+                            "}" +
+                            "return false;"
             );
             return Boolean.TRUE.equals(result);
         } catch (Exception e) {
