@@ -36,7 +36,7 @@ public class NaukriProfileUpdater {
     private static final String LOGOUT_URL = "https://www.naukri.com/nlogin/logout";
 
     // ── Timeouts ──────────────────────────────────────────────────────────────
-    private static final Duration PAGE_WAIT    = Duration.ofSeconds(20);
+    private static final Duration PAGE_WAIT    = Duration.ofSeconds(40);
     private static final Duration ELEMENT_WAIT = Duration.ofSeconds(15);
 
     // ── Selectors (update these if Naukri changes its DOM) ────────────────────
@@ -103,8 +103,33 @@ public class NaukriProfileUpdater {
         options.addArguments("--no-sandbox");
         options.addArguments("--disable-dev-shm-usage");
         options.addArguments("--disable-gpu");
-        options.addArguments("--window-size=1920,1080");
+        options.addArguments("--window-size=1366,768");
         options.addArguments("--disable-blink-features=AutomationControlled");
+
+        // ── Memory saving flags for low RAM servers ──────────────────────────────
+        options.addArguments("--single-process");
+        options.addArguments("--no-zygote");
+        options.addArguments("--disable-extensions");
+        options.addArguments("--disable-plugins");
+        options.addArguments("--disable-images");          // don't load images — saves RAM
+        options.addArguments("--disable-javascript");      // try without JS first
+        options.addArguments("--blink-settings=imagesEnabled=false");
+        options.addArguments("--disable-background-networking");
+        options.addArguments("--disable-default-apps");
+        options.addArguments("--disable-sync");
+        options.addArguments("--disable-translate");
+        options.addArguments("--hide-scrollbars");
+        options.addArguments("--metrics-recording-only");
+        options.addArguments("--mute-audio");
+        options.addArguments("--no-first-run");
+        options.addArguments("--safebrowsing-disable-auto-update");
+        options.addArguments("--ignore-certificate-errors");
+        options.addArguments("--disable-web-security");
+
+        // Use /tmp for Chrome data — avoids disk space issues
+        options.addArguments("--user-data-dir=/tmp/chrome-user-data");
+        options.addArguments("--disk-cache-dir=/tmp/chrome-cache");
+        options.addArguments("--disk-cache-size=33554432"); // 32MB cache limit
 
         // Mimic a real browser user-agent to reduce bot-detection risk
         options.addArguments(
