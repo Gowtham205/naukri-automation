@@ -16,14 +16,14 @@ import java.util.Random;
 
 /**
  * NaukriProfileUpdater
- *
+ * <p>
  * Opens Naukri, logs in, navigates to the profile page and clicks Save
  * without making any real changes. This updates the "Last Updated" timestamp,
  * which pushes the profile higher in recruiter searches.
- *
+ * <p>
  * Credentials are read from environment variables (never hardcoded):
- *   NAUKRI_EMAIL    – your registered Naukri email
- *   NAUKRI_PASSWORD – your Naukri password
+ * NAUKRI_EMAIL    – your registered Naukri email
+ * NAUKRI_PASSWORD – your Naukri password
  */
 public class NaukriProfileUpdater {
 
@@ -289,39 +289,60 @@ public class NaukriProfileUpdater {
 
     private static void step2_openProfileEditor(WebDriver driver, WebDriverWait wait)
             throws InterruptedException {
+        log.info("Checking for chatbot overlay...");
+
+        // Close chatbot overlay if present — it blocks all clicks
+        try {
+            WebElement chatbotOverlay = driver.findElement(
+                    By.cssSelector("div.chatbot_Overlay.show")
+            );
+            // Click outside the overlay to dismiss it
+            ((JavascriptExecutor) driver).executeScript(
+                    "arguments[0].style.display='none';", chatbotOverlay
+            );
+            log.info("Dismissed chatbot overlay.");
+            humanDelay(1000, 1500);
+        } catch (NoSuchElementException e) {
+            log.debug("No chatbot overlay found.");
+        }
+
+        // Also close any other overlays that might be present
+        try {
+            ((JavascriptExecutor) driver).executeScript(
+                    "var overlays = document.querySelectorAll('[class*=\"Overlay\"]');" +
+                            "overlays.forEach(function(el){ el.style.display='none'; });"
+            );
+            log.debug("Cleared all overlay elements.");
+            humanDelay(500, 800);
+        } catch (Exception e) {
+            log.debug("No overlays to clear.");
+        }
+
         log.info("Looking for profile icon/menu in navbar...");
 
-        // Click on the user avatar/name in the top navbar
+        // Now click profile icon using JavaScript to avoid any remaining intercepts
         String[] profileIconSelectors = {
                 "div.nI-gNb-drawer__bars",
                 "span[class*='username']",
                 "div[class*='user-name']",
-                "a[href*='mnjuser']",
-                "li[class*='user']",
-                "div.user-name",
-                "span.nI-gNb-menuBtn"
+                "a[href*='mnjuser']"
         };
 
-        boolean profileClicked = false;
         for (String sel : profileIconSelectors) {
             try {
-                WebElement profileIcon = wait.until(
-                        ExpectedConditions.elementToBeClickable(By.cssSelector(sel))
+                WebElement icon = wait.until(
+                        ExpectedConditions.presenceOfElementLocated(By.cssSelector(sel))
                 );
-                scrollToElement(driver, profileIcon);
+                scrollToElement(driver, icon);
                 humanDelay(800, 1200);
-                profileIcon.click();
+                // Use JS click — bypasses overlay interception
+                ((JavascriptExecutor) driver).executeScript("arguments[0].click();", icon);
                 log.info("Clicked profile icon with selector: {}", sel);
-                profileClicked = true;
                 humanDelay(1500, 2000);
                 break;
             } catch (TimeoutException e) {
                 log.debug("Profile icon not found: {}", sel);
             }
-        }
-
-        if (!profileClicked) {
-            log.warn("Could not click profile icon, trying direct menu item...");
         }
 
         // Click "View & Update Profile" from the dropdown
