@@ -116,6 +116,7 @@ public class NaukriProfileUpdater {
         // Hide the "Chrome is being controlled by automated software" bar
         options.setExperimentalOption("excludeSwitches", new String[]{"enable-automation"});
         options.setExperimentalOption("useAutomationExtension", false);
+        options.setPageLoadStrategy(PageLoadStrategy.EAGER);
 
         ChromeDriver driver = new ChromeDriver(options);
 
