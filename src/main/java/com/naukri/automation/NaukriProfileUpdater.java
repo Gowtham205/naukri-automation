@@ -236,11 +236,54 @@ public class NaukriProfileUpdater {
         typeSlowly(emailField, email);
         humanDelay(2000, 3000);
 
+        log.info("Looking for Next button after email...");
+        String[] nextBtnSelectors = {
+                "button[type='submit']",
+                "button.blue-btn",
+                "button.continueBtn",
+                "button[class*='continue']",
+                "button[class*='next']",
+                "input[type='submit']"
+        };
+
+        for (String sel : nextBtnSelectors) {
+            try {
+                WebElement nextBtn = wait.until(
+                        ExpectedConditions.elementToBeClickable(By.cssSelector(sel))
+                );
+                humanDelay(500, 800);
+                nextBtn.click();
+                log.info("Clicked Next button with selector: {}", sel);
+                humanDelay(2000, 3000); // wait for password field to appear
+                break;
+            } catch (TimeoutException e) {
+                log.debug("Next button not found: {}", sel);
+            }
+        }
+
         // Fill password
         log.info("Filling password...");
-        WebElement passField = wait.until(
-                ExpectedConditions.elementToBeClickable(By.cssSelector("input[type='password']"))
-        );
+        WebElement passField = null;
+        String[] passSelectors = {
+                "input[type='password']",
+                "input[placeholder*='password']",
+                "input[placeholder*='Password']",
+                "input[name='password']"
+        };
+
+        for (String sel : passSelectors) {
+            try {
+                passField = wait.until(
+                        ExpectedConditions.elementToBeClickable(By.cssSelector(sel))
+                );
+                log.info("Found password field: {}", sel);
+                break;
+            } catch (TimeoutException e) {
+                log.debug("Password selector not found: {}", sel);
+            }
+        }
+
+        if (passField == null) throw new RuntimeException("Password field not found.");
         passField.clear();
         typeSlowly(passField, password);
         humanDelay(1500, 2000);
