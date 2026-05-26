@@ -37,7 +37,7 @@ public class NaukriProfileUpdater {
 
     // ── Timeouts ──────────────────────────────────────────────────────────────
     private static final Duration PAGE_WAIT    = Duration.ofSeconds(20);
-    private static final Duration ELEMENT_WAIT = Duration.ofSeconds(15);
+    private static final Duration ELEMENT_WAIT = Duration.ofSeconds(40);
 
     // ── Selectors (update these if Naukri changes its DOM) ────────────────────
     // Login page
@@ -234,7 +234,7 @@ public class NaukriProfileUpdater {
         if (emailField == null) throw new RuntimeException("Email field not found.");
         emailField.clear();
         typeSlowly(emailField, email);
-        humanDelay(500, 1000);
+        humanDelay(2000, 3000);
 
         // Fill password
         log.info("Filling password...");
@@ -243,7 +243,7 @@ public class NaukriProfileUpdater {
         );
         passField.clear();
         typeSlowly(passField, password);
-        humanDelay(700, 1200);
+        humanDelay(1500, 2000);
 
         // Click Sign In inside the modal
         log.info("Submitting login...");
@@ -273,7 +273,7 @@ public class NaukriProfileUpdater {
 
         // Wait until logged in — homepage URL stays same but page content changes
         log.info("Waiting for login to complete...");
-        humanDelay(4000, 5000); // give it time to process
+        humanDelay(4500, 5500); // give it time to process
 
         // Verify login by checking page source for logged-in indicators
         wait.until(ExpectedConditions.or(
@@ -335,7 +335,7 @@ public class NaukriProfileUpdater {
                         ExpectedConditions.presenceOfElementLocated(By.cssSelector(sel))
                 );
                 scrollToElement(driver, icon);
-                humanDelay(800, 1200);
+                humanDelay(1000, 1500);
                 // Use JS click — bypasses overlay interception
                 ((JavascriptExecutor) driver).executeScript("arguments[0].click();", icon);
                 log.info("Clicked profile icon with selector: {}", sel);
@@ -360,7 +360,7 @@ public class NaukriProfileUpdater {
                 WebElement viewProfile = wait.until(
                         ExpectedConditions.elementToBeClickable(By.cssSelector(sel))
                 );
-                humanDelay(500, 800);
+                humanDelay(1000, 1200);
                 viewProfile.click();
                 log.info("Clicked View Profile with selector: {}", sel);
                 humanDelay(3000, 4000);
@@ -390,7 +390,7 @@ public class NaukriProfileUpdater {
                         ExpectedConditions.elementToBeClickable(By.cssSelector(sel))
                 );
                 scrollToElement(driver, editIcon);
-                humanDelay(800, 1200);
+                humanDelay(1000, 1200);
                 editIcon.click();
                 log.info("Clicked edit icon with selector: {}", sel);
                 clicked = true;
@@ -418,7 +418,7 @@ public class NaukriProfileUpdater {
                     ExpectedConditions.elementToBeClickable(By.id(SEL_SAVE_BUTTON))
             );
             scrollToElement(driver, saveBtn);
-            humanDelay(600, 1000);
+            humanDelay(800, 1200);
             saveBtn.click();
             log.info("Clicked Save with selector: {}", SEL_SAVE_BUTTON);
             saved = true;
@@ -518,7 +518,7 @@ public class NaukriProfileUpdater {
                         ExpectedConditions.elementToBeClickable(By.cssSelector(sel))
                 );
                 scrollToElement(driver, profileIcon);
-                humanDelay(800, 1200);
+                humanDelay(1000, 1200);
                 profileIcon.click();
                 log.info("Clicked profile menu for logout: {}", sel);
                 humanDelay(1500, 2000);
@@ -543,7 +543,7 @@ public class NaukriProfileUpdater {
                 WebElement logoutBtn = wait.until(
                         ExpectedConditions.elementToBeClickable(By.cssSelector(sel))
                 );
-                humanDelay(500, 800);
+                humanDelay(800, 1000);
                 logoutBtn.click();
                 log.info("Clicked logout with selector: {}", sel);
                 loggedOut = true;
